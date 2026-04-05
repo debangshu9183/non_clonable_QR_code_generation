@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+qrcode[pil]
+cryptography
+sqlalchemy
+python-multipart
