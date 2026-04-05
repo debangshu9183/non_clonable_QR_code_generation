@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Secure QR System</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f5f5f0; --surface: #ffffff; --border: #e2e2dc;
+      --text: #1a1a18; --muted: #6b6b66; --accent: #1a56db;
+      --green: #0a7c4a; --green-bg: #e6f4ee;
+      --red: #c0392b; --red-bg: #fdecea;
+      --amber: #92500a; --amber-bg: #fef3e2;
+      --radius: 10px;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6; }
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; align-items: center; gap: 1rem; height: 58px; }
+    header h1 { font-size: 16px; font-weight: 600; }
+    .badge { font-size: 11px; padding: 2px 8px; background: var(--green-bg); color: var(--green); border-radius: 20px; font-weight: 500; }
+    .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 2rem; }
+    .tab { padding: 14px 20px; font-size: 14px; cursor: pointer; border-bottom: 2px solid transparent; color: var(--muted); user-select: none; }
+    .tab.active { border-bottom-color: var(--accent); color: var(--accent); font-weight: 500; }
+    .tab:hover:not(.active) { color: var(--text); }
+    .page { display: none; padding: 2rem; max-width: 860px; margin: 0 auto; }
+    .page.active { display: block; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.25rem; }
+    .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 1rem; }
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 5px; }
+    input[type="text"] { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 7px; font-size: 14px; outline: none; }
+    input[type="text"]:focus { border-color: var(--accent); }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 7px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .toast { padding: 12px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; margin-top: 10px; }
+    .toast.success { background: var(--green-bg); color: var(--green); }
+    .toast.error   { background: var(--red-bg);   color: var(--red); }
+    .toast.warn    { background: var(--amber-bg);  color: var(--amber); }
+    #reader { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 8px 12px; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); }
+    td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    .pill { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .pill.used   { background: var(--red-bg);   color: var(--red); }
+    .pill.unused { background: var(--green-bg); color: var(--green); }
+    .empty { text-align: center; padding: 2rem; color: var(--muted); font-size: 14px; }
+    .id-cell { font-family: monospace; font-size: 11px; color: var(--muted); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sim-box { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Secure QR System</h1>
+  <span class="badge">One-time use</span>
+</header>
+
+<nav class="tabs">
+  <div class="tab active" onclick="switchTab('generate')">Generate QR</div>
+  <div class="tab" onclick="switchTab('scan')">Scan &amp; Verify</div>
+  <div class="tab" onclick="switchTab('list')">All QR Codes</div>
+</nav>
+
+<!-- Generate -->
+<div id="page-generate" class="page active">
+  <div class="card">
+    <h2>Generate a new QR code</h2>
+    <label for="label-input">Label (optional)</label>
+    <input type="text" id="label-input" placeholder="e.g. Event Pass / Ticket #42" style="margin-bottom:1rem" />
+    <button class="btn btn-primary" onclick="generateQR()">Generate QR</button>
+  </div>
+
+  <div id="qr-result" class="card" style="display:none">
+    <h2>Your QR Code</h2>
+    <img id="qr-img" src="" alt="QR Code" style="width:200px;border:1px solid var(--border);border-radius:6px;display:block" />
+    <p style="margin-top:10px;font-size:13px;color:var(--muted)">QR ID</p>
+    <div style="font-family:monospace;font-size:12px;word-break:break-all;background:var(--bg);padding:10px;border-radius:6px;border:1px solid var(--border);margin-top:6px" id="qr-id-out"></div>
+
+    <p style="margin-top:14px;font-size:13px;color:var(--muted)">Signed Payload (what is inside the QR)</p>
+    <div style="font-family:monospace;font-size:11px;word-break:break-all;background:var(--bg);padding:10px;border-radius:6px;border:1px solid var(--border);margin-top:6px;max-height:100px;overflow:auto" id="qr-payload-out"></div>
+
+    <div class="sim-box">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px">
+        No phone? Click below to simulate a scan right here on your laptop.
+      </p>
+      <button class="btn btn-primary" id="sim-btn" onclick="simulateScan()">Simulate Scan</button>
+      <div id="sim-result"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Scan -->
+<div id="page-scan" class="page">
+  <div class="card">
+    <h2>Scan QR with webcam</h2>
+    <div id="reader" style="width:100%;max-width:420px"></div>
+    <div id="scan-result"></div>
+  </div>
+  <div class="card">
+    <h2>Paste QR data manually</h2>
+    <label>Raw QR JSON</label>
+    <input type="text" id="paste-input" placeholder='{"payload":"...","signature":"..."}' style="margin-bottom:1rem" />
+    <button class="btn btn-primary" onclick="manualVerify()">Verify</button>
+    <div id="manual-result"></div>
+  </div>
+</div>
+
+<!-- List -->
+<div id="page-list" class="page">
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <h2 style="margin:0">All issued QR codes</h2>
+      <button class="btn btn-ghost" onclick="loadList()" style="font-size:13px">Refresh</button>
+    </div>
+    <div id="list-container"><p class="empty">Loading...</p></div>
+  </div>
+</div>
+
+<script>
+  var API = "http://127.0.0.1:8000";
+  var lastQrData = null;
+
+  function switchTab(name) {
+    var tabs = document.querySelectorAll(".tab");
+    var names = ["generate", "scan", "list"];
+    tabs.forEach(function(t, i) { t.classList.toggle("active", names[i] === name); });
+    document.querySelectorAll(".page").forEach(function(p) { p.classList.remove("active"); });
+    document.getElementById("page-" + name).classList.add("active");
+    if (name === "list") loadList();
+    if (name === "scan") initScanner();
+  }
+
+  async function generateQR() {
+    var label = document.getElementById("label-input").value.trim();
+    try {
+      var res = await fetch(API + "/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: label || null })
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Error");
+
+      lastQrData = data.qr_data;
+      document.getElementById("qr-img").src = "data:image/png;base64," + data.qr_image;
+      document.getElementById("qr-id-out").textContent = data.qr_id;
+      document.getElementById("qr-payload-out").textContent = data.qr_data;
+      document.getElementById("qr-result").style.display = "block";
+      document.getElementById("sim-result").innerHTML = "";
+      document.getElementById("sim-btn").textContent = "Simulate Scan";
+      document.getElementById("sim-btn").disabled = false;
+    } catch(e) {
+      alert("Error: " + e.message);
+    }
+  }
+
+  async function simulateScan() {
+    if (!lastQrData) { alert("Generate a QR first!"); return; }
+    var btn = document.getElementById("sim-btn");
+    btn.textContent = "Scanning...";
+    btn.disabled = true;
+    await verifyAndShow(lastQrData, document.getElementById("sim-result"), null);
+    btn.textContent = "Simulate Scan Again";
+    btn.disabled = false;
+  }
+
+  var scannerStarted = false;
+  function initScanner() {
+    if (scannerStarted) return;
+    scannerStarted = true;
+    var scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 260 });
+    scanner.render(async function(text) {
+      scanner.pause();
+      var el = document.getElementById("scan-result");
+      el.innerHTML = '<p style="color:var(--muted);font-size:13px">Verifying...</p>';
+      await verifyAndShow(text, el, function() { scanner.resume(); });
+    });
+  }
+
+  async function manualVerify() {
+    var raw = document.getElementById("paste-input").value.trim();
+    await verifyAndShow(raw, document.getElementById("manual-result"), null);
+  }
+
+  async function verifyAndShow(raw, container, onDone) {
+    var parsed;
+    try { parsed = JSON.parse(raw); }
+    catch(e) { showToast(container, "error", "Invalid JSON - cannot parse QR data."); return; }
+
+    var payload = parsed.payload;
+    var signature = parsed.signature;
+    if (!payload || !signature) { showToast(container, "error", "Missing payload or signature."); return; }
+
+    try {
+      var res = await fetch(API + "/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payload: payload, signature: signature })
+      });
+      var data = await res.json();
+      if (res.ok) {
+        showToast(container, "success", "Valid QR - accepted!" + (data.label ? "  Label: " + data.label : ""));
+      } else if (res.status === 409) {
+        showToast(container, "warn", data.detail);
+      } else {
+        showToast(container, "error", data.detail || "Verification failed");
+      }
+    } catch(e) {
+      showToast(container, "error", "Network error: " + e.message);
+    }
+    if (onDone) setTimeout(onDone, 3000);
+  }
+
+  function showToast(el, type, msg) {
+    el.innerHTML = '<div class="toast ' + type + '">' + msg + '</div>';
+  }
+
+  async function loadList() {
+    var c = document.getElementById("list-container");
+    c.innerHTML = '<p class="empty">Loading...</p>';
+    try {
+      var data = await (await fetch(API + "/list")).json();
+      if (!data.length) { c.innerHTML = '<p class="empty">No QR codes yet.</p>'; return; }
+      var rows = data.map(function(q) {
+        return '<tr>'
+          + '<td>' + (q.label || '<span style="color:var(--muted)">-</span>') + '</td>'
+          + '<td class="id-cell" title="' + q.id + '">' + q.id + '</td>'
+          + '<td><span class="pill ' + (q.used ? 'used' : 'unused') + '">' + (q.used ? 'Used' : 'Unused') + '</span></td>'
+          + '<td>' + fmtDate(q.created_at) + '</td>'
+          + '<td>' + (q.used_at ? fmtDate(q.used_at) : '<span style="color:var(--muted)">-</span>') + '</td>'
+          + '<td><button class="btn btn-ghost" style="font-size:12px;padding:4px 10px" onclick="deleteQR(\'' + q.id + '\')">Delete</button></td>'
+          + '</tr>';
+      }).join("");
+      c.innerHTML = '<table><thead><tr><th>Label</th><th>QR ID</th><th>Status</th><th>Created</th><th>Used at</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+    } catch(e) {
+      c.innerHTML = '<p class="empty">Error: ' + e.message + '</p>';
+    }
+  }
+
+  async function deleteQR(id) {
+    if (!confirm("Delete this QR?")) return;
+    await fetch(API + "/delete/" + id, { method: "DELETE" });
+    loadList();
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return "-";
+    return new Date(iso + (iso.endsWith("Z") ? "" : "Z")).toLocaleString();
+  }
+</script>
+</body>
+</html>
